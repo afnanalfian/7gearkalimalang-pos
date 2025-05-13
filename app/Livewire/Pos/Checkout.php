@@ -1,14 +1,15 @@
 <?php
 
 namespace App\Livewire\Pos;
-
 use Gloudemans\Shoppingcart\Facades\Cart;
+use Modules\Product\Entities\Product;
 use Livewire\Component;
+use Illuminate\Support\Facades\Log;
 
 class Checkout extends Component
 {
 
-    public $listeners = ['productSelected', 'discountModalRefresh'];
+    public $listeners = ['scan-product' => 'scanAndAddProductByName','productSelected', 'discountModalRefresh'];
 
     public $cart_instance;
     public $customers;
@@ -22,8 +23,11 @@ class Checkout extends Component
     public $data;
     public $customer_id;
     public $total_amount;
+    public $scannedProductName;
+
 
     public function mount($cartInstance, $customers) {
+        \Log::info('🧩 Komponen Checkout di-mount');
         $this->cart_instance = $cartInstance;
         $this->customers = $customers;
         $this->global_discount = 0;
@@ -211,4 +215,65 @@ class Checkout extends Component
             'product_discount_type' => $this->discount_type[$product_id],
         ]]);
     }
+    public function updatedScannedProductName($value) {
+    $this->scanAndAddProductByName($value);
+    }
+
+    public function scanAndAddProductByName($input)
+    {
+        \Log::info('🔍 SCAN DITERIMA:', [$input]);
+
+        // Cari berdasarkan kode produk dulu (karena barcode biasanya kode)
+        $product = Product::where('product_code', $input)
+            ->orWhere('product_name', 'LIKE', '%' . $input . '%')
+            ->first();
+
+        if (!$product) {
+            \Log::warning('❌ Produk tidak ditemukan untuk input:', [$input]);
+            $this->dispatchBrowserEvent('product-scan-failed', ['message' => 'Produk tidak ditemukan']);
+            return;
+        }
+
+        \Log::info('✅ Produk ditemukan:', [$product->product_name]);
+
+        $cart = Cart::instance($this->cart_instance);
+
+        $exists = $cart->search(fn($item) => $item->id == $product->id);
+
+        if ($exists->isNotEmpty()) {
+            \Log::info('⚠️ Produk sudah ada di keranjang:', [$product->product_name]);
+            $this->dispatchBrowserEvent('product-scan-failed', ['message' => 'Produk sudah ada di keranjang']);
+            return;
+        }
+
+        $calc = $this->calculate($product);
+
+        $cart->add([
+            'id' => $product->id,
+            'name' => $product->product_name,
+            'qty' => 1,
+            'price' => $calc['price'],
+            'weight' => 1,
+            'options' => [
+                'code' => $product->product_code,
+                'unit_price' => $calc['unit_price'],
+                'sub_total' => $calc['sub_total'],
+                'product_discount' => 0,
+                'product_discount_type' => 'fixed',
+                'product_tax' => $calc['product_tax'],
+                'stock' => $product->product_quantity,
+                'unit' => $product->product_unit,
+            ],
+        ]);
+
+        $this->check_quantity[$product->id] = $product->product_quantity;
+        $this->quantity[$product->id] = 1;
+        $this->discount_type[$product->id] = 'fixed';
+        $this->item_discount[$product->id] = 0;
+        $this->total_amount = $this->calculateTotal();
+
+        $this->dispatch('cartUpdated');
+        $this->dispatchBrowserEvent('product-scan-success', ['message' => 'Produk berhasil ditambahkan: ' . $product->product_name]);
+    }
+
 }

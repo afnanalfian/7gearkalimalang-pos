@@ -1,18 +1,6 @@
 <div>
+    <div id="reader" wire:ignore style="width: 500px;"></div>
     <div class="card border-0 shadow-sm">
-        <div class="card-body">
-            <div>
-                @if (session()->has('message'))
-                    <div class="alert alert-warning alert-dismissible fade show" role="alert">
-                        <div class="alert-body">
-                            <span>{{ session('message') }}</span>
-                            <button type="button" class="close" data-dismiss="alert" aria-label="Close">
-                                <span aria-hidden="true">×</span>
-                            </button>
-                        </div>
-                    </div>
-                @endif
-
                 <div class="form-group">
                     <label for="customer_id">Customer <span class="text-danger">*</span></label>
                     <div class="input-group">
@@ -137,11 +125,59 @@
                 <button wire:click="resetCart" type="button" class="btn btn-pill btn-danger mr-3"><i class="bi bi-x"></i> Reset</button>
                 <button wire:loading.attr="disabled" wire:click="proceed" type="button" class="btn btn-pill btn-primary" {{  $total_amount == 0 ? 'disabled' : '' }}><i class="bi bi-check"></i> Proceed</button>
             </div>
-        </div>
-    </div>
-
-    {{--Checkout Modal--}}
-    @include('livewire.pos.includes.checkout-modal')
-
+            {{--Checkout Modal--}}
+            @include('livewire.pos.includes.checkout-modal')
 </div>
+
+<script src="https://unpkg.com/html5-qrcode"></script>
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        const html5QrCode = new Html5Qrcode("reader");
+        console.log("📦 Livewire = ", Livewire);
+        console.log("📦 Komponen checkout = ", Livewire.find('pos.checkout'));
+        html5QrCode.start(
+            { facingMode: "environment" },
+            {
+                fps: 10,
+                qrbox: 250
+            },
+            qrMessage => {
+                console.log("QR DETECTED:", qrMessage); // LOG PENTING
+                console.log(Livewire.all());
+
+                if (qrMessage && qrMessage.trim() !== '') {
+                // Ambil komponen Livewire yang punya listener `scanAndAddProductByName`
+                const checkoutComponent = Livewire.all().find(
+                    c => c.snapshot.data.listeners?.some(e => e.includes('scanAndAddProductByName'))
+                );
+
+                if (checkoutComponent) {
+                    // checkoutComponent.dispatch('scanAndAddProductByName', qrMessage.trim());
+                    // Livewire.dispatchTo('checkout', 'scanAndAddProductByName', qrMessage.trim());
+                    Livewire.first()?.$emit('scanAndAddProductByName', qrMessage.trim());
+                    console.log("✅ Event dispatched to checkout");
+                } else {
+                    console.warn("❌ Komponen checkout tidak ditemukan.");
+                }
+            }},
+            errorMessage => {
+                // ini bisa muncul sangat sering
+                // console.warn("QR scan error:", errorMessage);
+            }
+        ).catch(err => {
+            console.error("QR scanning error:", err);
+        });
+    });
+
+    // Notifikasi hasil scan dari Livewire
+    window.addEventListener('product-scan-success', event => {
+        console.log("✅ Produk ditambahkan:", event.detail.message);
+        alert(event.detail.message);
+    });
+
+    window.addEventListener('product-scan-failed', event => {
+        console.warn("❌ Produk gagal ditemukan:", event.detail.message);
+        alert(event.detail.message);
+    });
+</script>
 

@@ -22,7 +22,7 @@
                         <a href="{{ route('currencies.create') }}" class="btn btn-primary">
                             Add Currency <i class="bi bi-plus"></i>
                         </a>
-
+aku tahu, 
                         <hr>
 
                         <div class="table-responsive">

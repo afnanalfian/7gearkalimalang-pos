@@ -10,7 +10,7 @@ use Modules\Product\Entities\Product;
 class ProductCart extends Component
 {
 
-    public $listeners = ['productSelected', 'discountModalRefresh'];
+    public $listeners = ['scan-product' => 'scanAndAddProductByName','productSelected', 'discountModalRefresh'];
 
     public $cart_instance;
     public $global_discount;

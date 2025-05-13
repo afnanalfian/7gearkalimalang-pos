@@ -24,7 +24,7 @@
                 <livewire:pos.product-list :categories="$product_categories"/>
             </div>
             <div class="col-lg-5">
-                <livewire:pos.checkout :cart-instance="'sale'" :customers="$customers"/>
+                <livewire:pos.checkout :cart-instance="'sale'" :customers="$customers" name="checkout" />
             </div>
         </div>
     </div>
@@ -63,5 +63,4 @@
             });
         });
     </script>
-
 @endpush
